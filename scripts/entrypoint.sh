@@ -59,14 +59,18 @@ write_environment_file() {
 }
 
 install_crontab() {
-  local cron_file=/etc/cron.d/autosqlpackage
+  local cron_dir=/var/spool/cron/crontabs
+  local cron_file="$cron_dir/root"
+
+  mkdir -p "$cron_dir"
+
   {
     echo "SHELL=/bin/bash"
     echo "PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
-    echo "$CRON_EXPRESSION root source /etc/autosqlpackage/env && /usr/local/bin/backup.sh >> /proc/1/fd/1 2>> /proc/1/fd/2"
+    echo "$CRON_EXPRESSION source /etc/autosqlpackage/env && /usr/local/bin/backup.sh >> /proc/1/fd/1 2>> /proc/1/fd/2"
   } > "$cron_file"
 
-  chmod 0644 "$cron_file"
+  chmod 0600 "$cron_file"
 }
 
 run_startup_backup_if_requested() {
@@ -97,4 +101,4 @@ echo "[entrypoint] Backups will be written to '$BACKUP_DIR'."
 
 run_startup_backup_if_requested
 
-exec cron -f
+exec busybox crond -f -l 8 -L /proc/1/fd/1 -c /var/spool/cron/crontabs

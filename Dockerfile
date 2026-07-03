@@ -1,14 +1,24 @@
-FROM mcr.microsoft.com/dotnet/sdk:10.0 AS sqlpackage
+FROM mcr.microsoft.com/dotnet/runtime-deps:10.0 AS sqlpackage
 
-ARG SQLPACKAGE_VERSION=170.4.83
+ARG SQLPACKAGE_URL=https://download.microsoft.com/download/18a5e51e-8332-4cbe-bb50-6d3a50c704c5/sqlpackage-linux-x64-en-170.4.83.3.zip
+ARG SQLPACKAGE_SHA256=E81EDE2429F3A15D9E752845C8928569C7706B3A911FAD2D1717C0F03E0FC7C3
 
-RUN dotnet tool install microsoft.sqlpackage \
-    --tool-path /opt/sqlpackage \
-    --version "$SQLPACKAGE_VERSION" \
-    && rm -rf /opt/sqlpackage/.store/microsoft.sqlpackage/*/microsoft.sqlpackage/*/tools/net8.0 \
-    && find /opt/sqlpackage/.store -type f \( -name "*.nupkg" -o -name "*.nupkg.sha512" \) -delete
+SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 
-FROM mcr.microsoft.com/dotnet/runtime:10.0
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends \
+        ca-certificates \
+        curl \
+        unzip \
+    && rm -rf /var/lib/apt/lists/* \
+    && mkdir -p /opt/sqlpackage \
+    && curl -fkSL "$SQLPACKAGE_URL" -o /tmp/sqlpackage.zip \
+    && echo "$SQLPACKAGE_SHA256  /tmp/sqlpackage.zip" | sha256sum -c - \
+    && unzip -q /tmp/sqlpackage.zip -d /opt/sqlpackage \
+    && chmod +x /opt/sqlpackage/sqlpackage \
+    && rm /tmp/sqlpackage.zip
+
+FROM mcr.microsoft.com/dotnet/runtime-deps:10.0
 
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 
@@ -20,10 +30,7 @@ ENV BACKUP_DIR=/backups \
 
 RUN apt-get update \
     && apt-get install -y --no-install-recommends \
-        ca-certificates \
-        cron \
-        tzdata \
-    && update-ca-certificates \
+        busybox-static \
     && rm -rf /var/lib/apt/lists/*
 
 COPY --from=sqlpackage /opt/sqlpackage /opt/sqlpackage
