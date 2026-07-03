@@ -4,7 +4,9 @@ ARG SQLPACKAGE_VERSION=170.4.83
 
 RUN dotnet tool install microsoft.sqlpackage \
     --tool-path /opt/sqlpackage \
-    --version "$SQLPACKAGE_VERSION"
+    --version "$SQLPACKAGE_VERSION" \
+    && rm -rf /opt/sqlpackage/.store/microsoft.sqlpackage/*/microsoft.sqlpackage/*/tools/net8.0 \
+    && find /opt/sqlpackage/.store -type f \( -name "*.nupkg" -o -name "*.nupkg.sha512" \) -delete
 
 FROM mcr.microsoft.com/dotnet/runtime:10.0
 
