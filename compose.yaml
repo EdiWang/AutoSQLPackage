@@ -1,6 +1,6 @@
 services:
   autosqlpackage:
-    build: .
+    image: ediwang.azurecr.io/autosqlpackage
     container_name: autosqlpackage
     restart: unless-stopped
     environment:
