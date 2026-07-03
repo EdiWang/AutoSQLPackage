@@ -1,4 +1,4 @@
-FROM mcr.microsoft.com/dotnet/sdk:8.0-jammy AS sqlpackage
+FROM mcr.microsoft.com/dotnet/sdk:10.0 AS sqlpackage
 
 ARG SQLPACKAGE_VERSION=170.4.83
 
@@ -6,7 +6,7 @@ RUN dotnet tool install microsoft.sqlpackage \
     --tool-path /opt/sqlpackage \
     --version "$SQLPACKAGE_VERSION"
 
-FROM mcr.microsoft.com/dotnet/runtime:8.0-jammy
+FROM mcr.microsoft.com/dotnet/runtime:10.0
 
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 
