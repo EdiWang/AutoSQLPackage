@@ -25,7 +25,7 @@ jobs:
           context: ./
           file: ./Dockerfile
           push: true
-          tags: ediwang.azurecr.io/autosqlpackage:latest
+          tags: ediwang/autosqlpackage:latest
 
       - name: Image digest
         run: echo ${{ steps.docker_build.outputs.digest }}
