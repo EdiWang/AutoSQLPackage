@@ -1,0 +1,16 @@
+services:
+  autosqlpackage:
+    build: .
+    container_name: autosqlpackage
+    restart: unless-stopped
+    environment:
+      SQLSERVER_CONNECTION_STRING: ${SQLSERVER_CONNECTION_STRING:-}
+      DATABASES: ${DATABASES:-}
+      CRON_EXPRESSION: ${CRON_EXPRESSION:-0 5 * * 4}
+      BACKUP_DIR: ${BACKUP_DIR:-/backups}
+      RETENTION_COUNT: ${RETENTION_COUNT:-5}
+      RUN_ON_STARTUP: ${RUN_ON_STARTUP:-false}
+      TZ: ${TZ:-UTC}
+      SQLPACKAGE_EXTRA_ARGS: ${SQLPACKAGE_EXTRA_ARGS:-}
+    volumes:
+      - ${HOST_BACKUP_DIR:-./backups}:${BACKUP_DIR:-/backups}
