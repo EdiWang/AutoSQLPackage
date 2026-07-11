@@ -26,11 +26,15 @@ ENV BACKUP_DIR=/backups \
     CRON_EXPRESSION="0 5 * * 4" \
     RETENTION_COUNT=5 \
     RUN_ON_STARTUP=false \
+    SERVERS_CONFIG=/etc/autosqlpackage/servers.yaml \
+    SQLPACKAGE_EXTRA_ARGS="" \
     TZ=UTC
 
 RUN apt-get update \
     && apt-get install -y --no-install-recommends \
         busybox-static \
+        python3 \
+        python3-yaml \
     && rm -rf /var/lib/apt/lists/*
 
 COPY --from=sqlpackage /opt/sqlpackage /opt/sqlpackage
@@ -39,8 +43,9 @@ RUN ln -s /opt/sqlpackage/sqlpackage /usr/local/bin/sqlpackage
 
 COPY scripts/entrypoint.sh /usr/local/bin/entrypoint.sh
 COPY scripts/backup.sh /usr/local/bin/backup.sh
+COPY scripts/config_tasks.py /usr/local/bin/autosqlpackage-config
 
-RUN chmod +x /usr/local/bin/entrypoint.sh /usr/local/bin/backup.sh \
+RUN chmod +x /usr/local/bin/entrypoint.sh /usr/local/bin/backup.sh /usr/local/bin/autosqlpackage-config \
     && mkdir -p /backups /etc/autosqlpackage
 
 ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]

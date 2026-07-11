@@ -3,9 +3,11 @@ services:
     image: ediwang.azurecr.io/autosqlpackage
     container_name: autosqlpackage
     restart: unless-stopped
+    env_file:
+      - path: .env
+        required: false
     environment:
-      SQLSERVER_CONNECTION_STRING: ${SQLSERVER_CONNECTION_STRING:-}
-      DATABASES: ${DATABASES:-}
+      SERVERS_CONFIG: ${SERVERS_CONFIG:-/etc/autosqlpackage/servers.yaml}
       CRON_EXPRESSION: ${CRON_EXPRESSION:-0 5 * * 4}
       BACKUP_DIR: ${BACKUP_DIR:-/backups}
       RETENTION_COUNT: ${RETENTION_COUNT:-5}
@@ -13,4 +15,5 @@ services:
       TZ: ${TZ:-UTC}
       SQLPACKAGE_EXTRA_ARGS: ${SQLPACKAGE_EXTRA_ARGS:-}
     volumes:
+      - ${SERVERS_CONFIG_HOST:-./servers.yaml}:${SERVERS_CONFIG:-/etc/autosqlpackage/servers.yaml}:ro
       - ${HOST_BACKUP_DIR:-./backups}:${BACKUP_DIR:-/backups}

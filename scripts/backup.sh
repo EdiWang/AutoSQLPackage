@@ -3,6 +3,7 @@ set -Eeuo pipefail
 
 : "${BACKUP_DIR:=/backups}"
 : "${RETENTION_COUNT:=5}"
+: "${SERVERS_CONFIG:=/etc/autosqlpackage/servers.yaml}"
 : "${SQLPACKAGE_EXTRA_ARGS:=}"
 
 failures=()
@@ -19,64 +20,67 @@ trim() {
   printf '%s' "$value"
 }
 
-build_connection_string() {
-  local database="$1"
-  local connection="$SQLSERVER_CONNECTION_STRING"
-
-  if [[ "$connection" == *"{database}"* ]]; then
-    connection="${connection//\{database\}/$database}"
-  elif [[ "$connection" == *"{DATABASE}"* ]]; then
-    connection="${connection//\{DATABASE\}/$database}"
-  elif [[ "${#databases[@]}" -gt 1 ]]; then
-    fail "SQLSERVER_CONNECTION_STRING must contain {database} when DATABASES has more than one database."
+run_config_tool() {
+  if command -v autosqlpackage-config >/dev/null 2>&1; then
+    autosqlpackage-config "$@"
+  elif command -v python3 >/dev/null 2>&1 && python3 --version >/dev/null 2>&1; then
+    python3 "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/config_tasks.py" "$@"
+  else
+    python "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/config_tasks.py" "$@"
   fi
-
-  printf '%s' "$connection"
 }
 
 cleanup_old_backups() {
-  local database="$1"
+  local backup_dir="$1"
+  local backup_prefix="$2"
+  local retention_count="$3"
+  local label="$4"
 
-  [[ "$RETENTION_COUNT" -gt 0 ]] || return 0
+  [[ "$retention_count" -gt 0 ]] || return 0
 
   mapfile -t old_files < <(
-    find "$BACKUP_DIR" -maxdepth 1 -type f -name "$database-*.bacpac" -printf '%T@ %p\n' \
+    find "$backup_dir" -maxdepth 1 -type f -name "$backup_prefix-*.bacpac" -printf '%T@ %p\n' \
       | sort -rn \
-      | awk -v keep="$RETENTION_COUNT" 'NR > keep { $1=""; sub(/^ /, ""); print }'
+      | awk -v keep="$retention_count" 'NR > keep { $1=""; sub(/^ /, ""); print }'
   )
 
   if [[ "${#old_files[@]}" -gt 0 ]]; then
-    echo "[backup] Removing ${#old_files[@]} old backup(s) for '$database'."
+    echo "[backup] Removing ${#old_files[@]} old backup(s) for '$label'."
     rm -f -- "${old_files[@]}"
   fi
 }
 
-[[ -n "${SQLSERVER_CONNECTION_STRING:-}" ]] || fail "SQLSERVER_CONNECTION_STRING is required."
-[[ -n "${DATABASES:-}" ]] || fail "DATABASES is required."
-[[ "$RETENTION_COUNT" =~ ^[0-9]+$ ]] || fail "RETENTION_COUNT must be a non-negative integer."
+if [[ "${1:-}" == "--validate-config" ]]; then
+  run_config_tool --validate
+  exit 0
+fi
 
-mkdir -p "$BACKUP_DIR"
+tasks_file="$(mktemp)"
+trap 'rm -f "$tasks_file"' EXIT
 
-IFS=',' read -r -a raw_databases <<< "$DATABASES"
-databases=()
-
-for raw_database in "${raw_databases[@]}"; do
-  database="$(trim "$raw_database")"
-  [[ -n "$database" ]] && databases+=("$database")
-done
-
-[[ "${#databases[@]}" -gt 0 ]] || fail "DATABASES does not contain any database names."
+run_config_tool --format nul > "$tasks_file"
 
 timestamp="$(date '+%Y-%m-%d-%H-%M-%S')"
+task_count=0
 
 echo "[backup] Starting backup run at $(date '+%Y-%m-%d %H:%M:%S %Z')."
-echo "[backup] Databases: ${databases[*]}"
 
-for database in "${databases[@]}"; do
-  backup_file="$BACKUP_DIR/$database-$timestamp.bacpac"
-  connection_string="$(build_connection_string "$database")"
+while IFS= read -r -d '' server_name; do
+  IFS= read -r -d '' database || fail "Backup task data is malformed."
+  IFS= read -r -d '' backup_dir || fail "Backup task data is malformed."
+  IFS= read -r -d '' retention_count || fail "Backup task data is malformed."
+  IFS= read -r -d '' connection_string || fail "Backup task data is malformed."
+  IFS= read -r -d '' backup_prefix || fail "Backup task data is malformed."
 
-  echo "[backup] Exporting '$database' to '$backup_file'."
+  [[ "$retention_count" =~ ^[0-9]+$ ]] || fail "retention_count for '$server_name/$database' must be a non-negative integer."
+
+  mkdir -p "$backup_dir"
+
+  task_count=$((task_count + 1))
+  backup_file="$backup_dir/$backup_prefix-$timestamp.bacpac"
+  label="$server_name/$database"
+
+  echo "[backup] Exporting '$label' to '$backup_file'."
 
   args=(
     "/Action:Export"
@@ -93,17 +97,19 @@ for database in "${databases[@]}"; do
     if [[ -f "$backup_file" ]]; then
       size_bytes="$(stat -c '%s' "$backup_file")"
       size_mb="$(awk -v bytes="$size_bytes" 'BEGIN { printf "%.2f", bytes / 1024 / 1024 }')"
-      echo "[backup] Completed '$database'. File size: ${size_mb} MB."
-      cleanup_old_backups "$database"
+      echo "[backup] Completed '$label'. File size: ${size_mb} MB."
+      cleanup_old_backups "$backup_dir" "$backup_prefix" "$retention_count" "$label"
     else
-      echo "[backup] Export for '$database' finished but target file was not found." >&2
-      failures+=("$database")
+      echo "[backup] Export for '$label' finished but target file was not found." >&2
+      failures+=("$label")
     fi
   else
-    echo "[backup] Export failed for '$database'." >&2
-    failures+=("$database")
+    echo "[backup] Export failed for '$label'." >&2
+    failures+=("$label")
   fi
-done
+done < "$tasks_file"
+
+[[ "$task_count" -gt 0 ]] || fail "No backup tasks were loaded."
 
 if [[ "${#failures[@]}" -gt 0 ]]; then
   echo "[backup] Failed database(s): ${failures[*]}" >&2

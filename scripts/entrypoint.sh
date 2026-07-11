@@ -5,6 +5,7 @@ set -Eeuo pipefail
 : "${CRON_EXPRESSION:=0 5 * * 4}"
 : "${RETENTION_COUNT:=5}"
 : "${RUN_ON_STARTUP:=false}"
+: "${SERVERS_CONFIG:=/etc/autosqlpackage/servers.yaml}"
 : "${TZ:=UTC}"
 : "${SQLPACKAGE_EXTRA_ARGS:=}"
 
@@ -14,13 +15,10 @@ fail() {
 }
 
 validate_required_config() {
-  [[ -n "${SQLSERVER_CONNECTION_STRING:-}" ]] || fail "SQLSERVER_CONNECTION_STRING is required."
-  [[ -n "${DATABASES:-}" ]] || fail "DATABASES is required."
-
   read -r -a cron_parts <<< "$CRON_EXPRESSION"
   [[ "${#cron_parts[@]}" -eq 5 ]] || fail "CRON_EXPRESSION must use the standard 5-field format, for example: 0 5 * * 4"
 
-  [[ "$RETENTION_COUNT" =~ ^[0-9]+$ ]] || fail "RETENTION_COUNT must be a non-negative integer."
+  /usr/local/bin/backup.sh --validate-config
 }
 
 configure_timezone() {
@@ -42,20 +40,17 @@ write_environment_file() {
   : > "$env_file"
 
   local name
-  for name in \
-    BACKUP_DIR \
-    CRON_EXPRESSION \
-    DATABASES \
-    RETENTION_COUNT \
-    RUN_ON_STARTUP \
-    SQLPACKAGE_EXTRA_ARGS \
-    SQLSERVER_CONNECTION_STRING \
-    TZ
-  do
-    if [[ -v "$name" ]]; then
+  while IFS= read -r name; do
+    case "$name" in
+      BASH_FUNC_*|PWD|SHLVL|_)
+        continue
+        ;;
+    esac
+
+    if [[ "$name" =~ ^[A-Za-z_][A-Za-z0-9_]*$ && -v "$name" ]]; then
       printf 'export %s=%q\n' "$name" "${!name}" >> "$env_file"
     fi
-  done
+  done < <(compgen -e | sort)
 }
 
 install_crontab() {
@@ -98,6 +93,7 @@ install_crontab
 
 echo "[entrypoint] AutoSQLPackage is scheduled with cron '$CRON_EXPRESSION' in timezone '$TZ'."
 echo "[entrypoint] Backups will be written to '$BACKUP_DIR'."
+echo "[entrypoint] Backup config: '$SERVERS_CONFIG'."
 
 run_startup_backup_if_requested
 

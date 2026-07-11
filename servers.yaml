@@ -1,0 +1,27 @@
+defaults:
+  backup_dir: /backups
+  retention_count: 5
+
+servers:
+  - name: prod-east
+    enabled: true
+    connection_string: "Server=tcp:prod-east.database.windows.net,1433;Database={database};User ID=${PROD_EAST_SQL_USER};Password=${PROD_EAST_SQL_PASSWORD};Encrypt=True;TrustServerCertificate=False;Connection Timeout=30;"
+    databases:
+      - RMSMain
+      - RMSForms
+      - RMSWorkflow
+
+  - name: prod-west
+    enabled: true
+    connection_string: "Server=tcp:prod-west.database.windows.net,1433;Database={database};User ID=${PROD_WEST_SQL_USER};Password=${PROD_WEST_SQL_PASSWORD};Encrypt=True;TrustServerCertificate=False;Connection Timeout=30;"
+    databases:
+      - RMSMain
+      - RMSForms
+
+  - name: internal-reporting
+    enabled: true
+    retention_count: 10
+    connection_string: "Server=tcp:10.0.1.25,1433;Database={database};User ID=${REPORTING_SQL_USER};Password=${REPORTING_SQL_PASSWORD};Encrypt=True;TrustServerCertificate=True;Connection Timeout=30;"
+    databases:
+      - Reporting
+      - AuditLog
