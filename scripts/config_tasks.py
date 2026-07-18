@@ -18,6 +18,7 @@ except ImportError as exc:
 
 DEFAULT_CONFIG_PATH = "/etc/autosqlpackage/servers.yaml"
 UNRESOLVED_BRACED_ENV = re.compile(r"\$\{([A-Za-z_][A-Za-z0-9_]*)\}")
+BARE_BRACED_PLACEHOLDER = re.compile(r"\{([A-Za-z_][A-Za-z0-9_]*)\}")
 SAFE_NAME_CHARS = re.compile(r"[^A-Za-z0-9._-]+")
 
 
@@ -84,13 +85,26 @@ def sanitize_name(value: str, fallback: str) -> str:
 
 def build_connection_string(template: str, database: str, database_count: int, label: str) -> str:
     if "{database}" in template:
-        return template.replace("{database}", database)
-    if "{DATABASE}" in template:
-        return template.replace("{DATABASE}", database)
-    if database_count > 1:
+        connection = template.replace("{database}", database)
+    elif "{DATABASE}" in template:
+        connection = template.replace("{DATABASE}", database)
+    elif database_count > 1:
         fail(f"{label} must contain {{database}} when more than one database is configured.")
+    else:
+        connection = template
 
-    return template
+    unresolved = sorted(
+        {
+            name
+            for name in BARE_BRACED_PLACEHOLDER.findall(connection)
+            if name not in {"database", "DATABASE"}
+        }
+    )
+    if unresolved:
+        examples = ", ".join(f"{{{name}}}" for name in unresolved)
+        fail(f"{label} contains unresolved placeholder(s): {examples}. Use ${{VAR_NAME}} for environment variables.")
+
+    return connection
 
 
 def load_yaml_tasks(config_path: str) -> list[BackupTask]:

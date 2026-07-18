@@ -45,7 +45,8 @@ COPY scripts/entrypoint.sh /usr/local/bin/entrypoint.sh
 COPY scripts/backup.sh /usr/local/bin/backup.sh
 COPY scripts/config_tasks.py /usr/local/bin/autosqlpackage-config
 
-RUN chmod +x /usr/local/bin/entrypoint.sh /usr/local/bin/backup.sh /usr/local/bin/autosqlpackage-config \
+RUN sed -i 's/\r$//' /usr/local/bin/entrypoint.sh /usr/local/bin/backup.sh /usr/local/bin/autosqlpackage-config \
+    && chmod +x /usr/local/bin/entrypoint.sh /usr/local/bin/backup.sh /usr/local/bin/autosqlpackage-config \
     && mkdir -p /backups /etc/autosqlpackage
 
 ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]

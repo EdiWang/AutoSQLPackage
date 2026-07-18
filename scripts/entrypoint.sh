@@ -75,7 +75,9 @@ run_startup_backup_if_requested() {
   case "$normalized" in
     true|1|yes|y)
       echo "[entrypoint] RUN_ON_STARTUP=true; running an immediate backup."
-      /usr/local/bin/backup.sh
+      if ! /usr/local/bin/backup.sh; then
+        echo "[entrypoint] WARN: Startup backup failed; continuing to scheduled cron runs." >&2
+      fi
       ;;
     false|0|no|n|"")
       ;;
