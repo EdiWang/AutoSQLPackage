@@ -78,11 +78,11 @@ docker compose up -d
 
 By default, the newest 5 `.bacpac` files are retained per server/database pair. Change `defaults.retention_count` in `servers.yaml` to adjust that number, or set `retention_count` on one server to override it.
 
-Backup files include the server name to avoid collisions when multiple servers contain databases with the same name:
+Backups are grouped into a subdirectory for each server. The server directory is created automatically when it does not exist, and backup filenames contain only the database name and timestamp:
 
 ```text
-prod-east-RMSMain-2026-07-11-05-00-00.bacpac
-internal-reporting-AuditLog-2026-07-11-05-00-00.bacpac
+/backups/prod-east/RMSMain-2026-07-11-05-00-00.bacpac
+/backups/internal-reporting/AuditLog-2026-07-11-05-00-00.bacpac
 ```
 
 ## Legacy Environment Variables

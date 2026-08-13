@@ -176,6 +176,7 @@ def load_yaml_tasks(config_path: str) -> list[BackupTask]:
         )
 
         safe_server_name = sanitize_name(server_name, f"server-{index}")
+        server_backup_dir = os.path.join(backup_dir, safe_server_name)
 
         for database_name in database_names:
             safe_database = sanitize_name(database_name, "database")
@@ -189,10 +190,10 @@ def load_yaml_tasks(config_path: str) -> list[BackupTask]:
                 BackupTask(
                     server_name=server_name,
                     database=database_name,
-                    backup_dir=backup_dir,
+                    backup_dir=server_backup_dir,
                     retention_count=retention_count,
                     connection_string=connection_string,
-                    backup_prefix=f"{safe_server_name}-{safe_database}",
+                    backup_prefix=safe_database,
                 )
             )
 
@@ -222,11 +223,11 @@ def load_legacy_tasks() -> list[BackupTask]:
     configured_server_name = os.environ.get("SERVER_NAME")
     server_name = configured_server_name or "default"
     safe_server_name = sanitize_name(server_name, "default")
+    server_backup_dir = os.path.join(backup_dir, safe_server_name)
 
     tasks = []
     for database_name in database_names:
         safe_database = sanitize_name(database_name, "database")
-        backup_prefix = f"{safe_server_name}-{safe_database}" if configured_server_name else safe_database
         connection_string = build_connection_string(
             connection_template,
             database_name,
@@ -237,10 +238,10 @@ def load_legacy_tasks() -> list[BackupTask]:
             BackupTask(
                 server_name=server_name,
                 database=database_name,
-                backup_dir=backup_dir,
+                backup_dir=server_backup_dir,
                 retention_count=retention_count,
                 connection_string=connection_string,
-                backup_prefix=backup_prefix,
+                backup_prefix=safe_database,
             )
         )
 
