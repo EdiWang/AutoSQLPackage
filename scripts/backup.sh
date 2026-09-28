@@ -1,9 +1,6 @@
 #!/usr/bin/env bash
 set -Eeuo pipefail
 
-: "${BACKUP_DIR:=/backups}"
-: "${RETENTION_COUNT:=5}"
-: "${SERVERS_CONFIG:=/etc/autosqlpackage/servers.yaml}"
 : "${SQLPACKAGE_EXTRA_ARGS:=}"
 
 failures=()

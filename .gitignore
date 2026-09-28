@@ -1,4 +1,6 @@
 .env
+config.yaml
+__pycache__/
 backups/
 backups-test/
 *.bacpac

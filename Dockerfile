@@ -22,14 +22,6 @@ FROM mcr.microsoft.com/dotnet/runtime-deps:10.0
 
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 
-ENV BACKUP_DIR=/backups \
-    CRON_EXPRESSION="0 5 * * 4" \
-    RETENTION_COUNT=5 \
-    RUN_ON_STARTUP=false \
-    SERVERS_CONFIG=/etc/autosqlpackage/servers.yaml \
-    SQLPACKAGE_EXTRA_ARGS="" \
-    TZ=UTC
-
 RUN apt-get update \
     && apt-get install -y --no-install-recommends \
         busybox-static \

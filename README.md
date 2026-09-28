@@ -1,52 +1,36 @@
 # AutoSQLPackage
 
-AutoSQLPackage is a small Dockerized backup runner for exporting SQL Server or Azure SQL databases to `.bacpac` files with `sqlpackage`.
-
-It uses a Bash backup script and cron inside the container. Backup targets are supplied through a YAML file.
+AutoSQLPackage exports SQL Server or Azure SQL databases to `.bacpac` files with `sqlpackage`. A container runs the backups on a cron schedule.
 
 ## Configuration
 
-Copy `.env.example` to `.env`, then edit `servers.yaml`.
+Copy `config.example.yaml` to `config.yaml`, then edit the schedule, servers, databases, and connection strings. Put the real user names and passwords directly in `config.yaml`.
 
-```env
-SERVERS_CONFIG=/etc/autosqlpackage/servers.yaml
-SERVERS_CONFIG_HOST=./servers.yaml
-CRON_EXPRESSION=0 5 * * 4
-BACKUP_DIR=/backups
-HOST_BACKUP_DIR=./backups
-RETENTION_COUNT=5
-RUN_ON_STARTUP=false
-TZ=UTC
-SQLPACKAGE_EXTRA_ARGS=
+```bash
+cp config.example.yaml config.yaml
 ```
 
-`servers.yaml` describes each server connection string and the databases to export:
+`config.yaml` is ignored by Git and excluded from the Docker build context. Keep it private and do not commit it. The container mounts it read-only at `/etc/autosqlpackage/config.yaml`.
 
 ```yaml
+schedule: "0 5 * * 4"
+timezone: Asia/Taipei
+run_on_startup: false
+sqlpackage_extra_args: ""
 defaults:
   backup_dir: /backups
   retention_count: 5
-
 servers:
   - name: prod-east
-    enabled: true
-    connection_string: "Server=tcp:prod-east.database.windows.net,1433;Database={database};User ID=${PROD_EAST_SQL_USER};Password=${PROD_EAST_SQL_PASSWORD};Encrypt=True;TrustServerCertificate=False;Connection Timeout=30;"
-    databases:
-      - RMSMain
-      - RMSForms
-
-  - name: internal-reporting
-    enabled: true
-    retention_count: 10
-    connection_string: "Server=tcp:10.0.1.25,1433;Database={database};User ID=${REPORTING_SQL_USER};Password=${REPORTING_SQL_PASSWORD};Encrypt=True;TrustServerCertificate=True;Connection Timeout=30;"
-    databases:
-      - Reporting
-      - AuditLog
+    connection_string: "Server=tcp:example.database.windows.net,1433;Database={database};User ID=sa;Password=change-me;Encrypt=True;TrustServerCertificate=False;"
+    databases: [RMSMain, RMSForms]
 ```
 
-`connection_string` should normally contain `{database}`. The backup script replaces it with each database name. Values like `${PROD_EAST_SQL_PASSWORD}` are expanded from container environment variables, so keep secrets in `.env` instead of committing them to YAML.
+The default schedule is every Thursday at 05:00 in the configured time zone. `connection_string` should contain `{database}` when the server has more than one database. Set `enabled: false` on a server to skip it. A server can override `defaults.retention_count`.
 
-The default schedule is every Thursday at 05:00 in the configured `TZ`. Set `TZ=Asia/Shanghai` or another IANA time zone if you want local-time scheduling and timestamps.
+Backups are mounted at `./backups` on the host and `/backups` in the container. Keep `defaults.backup_dir` and any server `backup_dir` under `/backups` so the files persist on the host.
+
+The old `.env` and `servers.yaml` configuration is no longer used. Move any real credentials and settings from them into `config.yaml` before upgrading.
 
 ## Run
 
@@ -56,39 +40,29 @@ Build and start:
 docker compose up -d --build
 ```
 
+After changing `config.yaml`, recreate the container so the schedule and time zone are reloaded:
+
+```bash
+docker compose up -d --force-recreate
+```
+
 View logs:
 
 ```bash
 docker compose logs -f autosqlpackage
 ```
 
-Run one immediate backup by setting:
+Set `run_on_startup: true` in `config.yaml` and recreate the container to run one immediate backup.
 
-```env
-RUN_ON_STARTUP=true
-```
+## Backup retention
 
-Then restart the service:
+The newest 5 `.bacpac` files are retained per server/database pair by default. Change `defaults.retention_count` or set `retention_count` on a server. Set it to `0` to keep all backups.
 
-```bash
-docker compose up -d
-```
-
-## Backup Retention
-
-By default, the newest 5 `.bacpac` files are retained per server/database pair. Change `defaults.retention_count` in `servers.yaml` to adjust that number, or set `retention_count` on one server to override it.
-
-Backups are grouped into a subdirectory for each server. The server directory is created automatically when it does not exist, and backup filenames contain only the database name and timestamp:
+Backups are grouped by server:
 
 ```text
 /backups/prod-east/RMSMain-2026-07-11-05-00-00.bacpac
 /backups/internal-reporting/AuditLog-2026-07-11-05-00-00.bacpac
 ```
-
-## Legacy Environment Variables
-
-If `SERVERS_CONFIG` does not point to an existing file, the container still supports the legacy `SQLSERVER_CONNECTION_STRING` and `DATABASES` environment variables.
-
-## Notes
 
 `.bacpac` files contain schema and data. Treat the backup directory as sensitive storage.
