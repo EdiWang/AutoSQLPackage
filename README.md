@@ -34,10 +34,13 @@ The old `.env` and `servers.yaml` configuration is no longer used. Move any real
 
 ## Run
 
-Build and start:
+This Compose file pulls `ediwang.azurecr.io/autosqlpackage`. Publish a version with the `config.yaml` changes to that registry before deploying. The current GitHub Actions workflow publishes `ediwang/autosqlpackage:latest` to Docker Hub, not to the Azure registry.
+
+Pull the published image and start (no source checkout or local build is needed):
 
 ```bash
-docker compose up -d --build
+docker compose pull
+docker compose up -d
 ```
 
 After changing `config.yaml`, recreate the container so the schedule and time zone are reloaded:
