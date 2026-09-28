@@ -13,16 +13,16 @@ servers:
     enabled: true
     connection_string: "Server=tcp:prod-east.database.windows.net,1433;Database={database};User ID=sa;Password=change-me;Encrypt=True;TrustServerCertificate=False;Connection Timeout=30;"
     databases:
-      - RMSMain
-      - RMSForms
-      - RMSWorkflow
+      - Main
+      - Forms
+      - Workflow
 
   - name: prod-west
     enabled: true
     connection_string: "Server=tcp:prod-west.database.windows.net,1433;Database={database};User ID=sa;Password=change-me;Encrypt=True;TrustServerCertificate=False;Connection Timeout=30;"
     databases:
-      - RMSMain
-      - RMSForms
+      - Main
+      - Forms
 
   - name: internal-reporting
     enabled: true

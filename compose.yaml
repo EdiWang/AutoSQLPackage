@@ -1,6 +1,6 @@
 services:
   autosqlpackage:
-    image: ediwang.azurecr.io/autosqlpackage
+    image: ediwang/autosqlpackage
     container_name: autosqlpackage
     restart: unless-stopped
     volumes:
